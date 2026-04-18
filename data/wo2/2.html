@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汉语互动游戏 - 词汇挑战</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #e67e22;
+            --success-color: #27ae60;
+            --error-color: #e74c3c;
+            --bg-color: #f0f3f4;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            width: 95%;
+            max-width: 900px;
+            background: white;
+            padding: 25px;
+            margin-top: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        h2 { text-align: center; color: var(--primary-color); margin-bottom: 5px; }
+        .sub-title { text-align: center; color: #7f8c8d; margin-bottom: 20px; font-size: 0.9em; }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-weight: bold;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #eee;
+        }
+
+        .answer-pool {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            padding: 20px;
+            background: #fff8f0;
+            border: 2px dashed var(--accent-color);
+            border-radius: 10px;
+            margin-bottom: 25px;
+            min-height: 50px;
+        }
+
+        .item {
+            padding: 10px 18px;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 6px;
+            cursor: grab;
+            font-size: 1.1em;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.16);
+            transition: transform 0.2s;
+        }
+        .item:active { transform: scale(0.95); }
+
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .match-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #fff;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .question-text {
+            flex: 2;
+            font-size: 1.1em;
+            color: #2c3e50;
+            line-height: 1.5;
+        }
+
+        .drop-zone {
+            flex: 0 0 150px;
+            padding: 12px;
+            background: #ecf0f1;
+            border: 2px dashed #bdc3c7;
+            border-radius: 8px;
+            text-align: center;
+            min-height: 24px;
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+        .drop-zone.filled { border-style: solid; background: #fff; color: var(--accent-color); border-color: var(--accent-color); }
+        .drop-zone.correct { background: #d4edda !important; border-color: var(--success-color) !important; color: #155724 !important; }
+        .drop-zone.wrong { background: #f8d7da !important; border-color: var(--error-color) !important; color: #721c24 !important; }
+
+        .controls { text-align: center; margin-top: 30px; }
+        .btn {
+            padding: 12px 40px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #34495e; }
+        .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+        #result-screen, #review-screen { display: none; width: 95%; max-width: 900px; margin-top: 20px; }
+        .review-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 10px; overflow: hidden; }
+        .review-table th, .review-table td { border: 1px solid #eee; padding: 15px; text-align: left; }
+        .review-table th { background: var(--primary-color); color: white; }
+    </style>
+</head>
+<body oncontextmenu="return false" oncopy="return false" onpaste="return false">
+
+<div id="game-container">
+    <h2>汉语综合课挑战</h2>
+    <div class="sub-title">认识新同学 & 住宿生活 (50题挑战)</div>
+    
+    <div class="info-bar">
+        <span>进度 (Level): <span id="current-level">1</span> / 10</span>
+        <span>正确 (Correct): <span id="correct-count">0</span></span>
+        <span>当前得分: <span id="current-score">0</span>%</span>
+    </div>
+
+    <div class="answer-pool" id="answer-pool"></div>
+    
+    <div class="game-area" id="game-area"></div>
+
+    <div class="controls">
+        <button class="btn" id="next-btn" onclick="processLevel()" disabled>提交答案 (Submit)</button>
+    </div>
+</div>
+
+<div id="result-screen">
+    <div id="game-container" style="text-align: center;">
+        <h2 id="result-title">测试完成</h2>
+        <div id="final-stats" style="font-size: 1.4em; margin: 30px 0; line-height: 2;"></div>
+        <button class="btn" onclick="location.reload()">再玩一次 (Retry)</button>
+    </div>
+</div>
+
+<div id="review-screen">
+    <div id="game-container">
+        <h3 style="color: var(--success-color); text-align: center;">复习清单 (Review List)</h3>
+        <table class="review-table">
+            <thead>
+                <tr>
+                    <th>完整句子 (Sentence Context)</th>
+                    <th>正确答案 (Answer)</th>
+                </tr>
+            </thead>
+            <tbody id="review-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Database 50 Soal dari PDF 1 (Pelajaran 1) & PDF 2 (Pelajaran 2)
+    const questionsDB = [
+        // Pelajaran 1 (1-25)
+        { s: "人的_____是无穷的。", a: "智慧" }, { s: "我_____印尼，我是印尼人。", a: "来自" },
+        { s: "他非常喜欢研究中国_____。", a: "诗歌" }, { s: "冯尚德的专业是_____。", a: "哲学" },
+        { s: "你_____有什么计划？", a: "将来" }, { s: "学习需要有明确的_____。", a: "计划" },
+        { s: "我希望能_____HSK四级考试。", a: "通过" }, { s: "他的口语说得很_____。", a: "流利" },
+        { s: "张小薇每门功课都很_____。", a: "优秀" }, { s: "孔子说，要做一个_____。", a: "君子" },
+        { s: "我们要多_____问题。", a: "思考" }, { s: "这个地方_____很漂亮。", a: "确实" },
+        { s: "很多运动，_____游泳、跑步。", a: "比如" }, { s: "我学国际中文_____专业。", a: "教育" },
+        { s: "他喜欢跟中国人_____。", a: "打交道" }, { s: "毕业后也要常跟老师_____。", a: "联系" },
+        { s: "他们两人的关系非常_____。", a: "密切" }, { s: "我是_____一年级的学生。", a: "本科" },
+        { s: "你大学_____后想去哪儿？", a: "毕业" }, { s: "向大家_____一下你自己。", a: "介绍" },
+        { s: "大家都夸他是个_____的孩子。", a: "聪明" }, { s: "你的大学_____是什么？", a: "专业" },
+        { s: "寒假你有什么_____？", a: "打算" }, { s: "他的学习_____一直很好。", a: "成绩" },
+        { s: "我想多_____中国人的生活。", a: "了解" },
+        // Pelajaran 2 (26-50)
+        { s: "请在表格里_____你的名字。", a: "填" }, { s: "你的家庭_____在哪里？", a: "住址" },
+        { s: "我住在海淀_____。", a: "区" }, { s: "_____，我迟到了。", a: "不好意思" },
+        { s: "这间宿舍有一个单独的_____。", a: "卫生间" }, { s: "住在校外确实有点儿_____。", a: "麻烦" },
+        { s: "学校给学生_____了宿舍。", a: "提供" }, { s: "早上见面要互相_____。", a: "打招呼" },
+        { s: "你住的地方离学校_____吗？", a: "远" }, { s: "因为路上_____，他迟到了。", a: "堵车" },
+        { s: "这个房间太_____了，没法睡觉。", a: "吵" }, { s: "住在校外可以自己煮饭，很_____。", a: "自由" },
+        { s: "这个宿舍楼有公共_____。", a: "洗衣机" }, { s: "我建议你还是住_____吧。", a: "校内" },
+        { s: "朴智慧现在住在_____。", a: "校外" }, { s: "这个房子的租金很_____。", a: "便宜" },
+        { s: "这里的交通非常_____。", a: "方便" }, { s: "每天有很多来自各国的_____。", a: "留学生" },
+        { s: "这个专业叫_____。", a: "国际经济" }, { s: "我们要多_____汉语口语。", a: "练习" },
+        { s: "我不喜欢吃这种_____。", a: "巧克力" }, { s: "大家都在准备汉语_____。", a: "考试" },
+        { s: "我们的_____很古老。", a: "文化" }, { s: "你同意不同意我的_____？", a: "意见" },
+        { s: "我明白这个词的_____了。", a: "意思" }
+    ];
+
+    let currentLvl = 0;
+    let score = 0;
+    let correctTotal = 0;
+    let shuffledDB = [];
+
+    function shuffle(arr) { return arr.sort(() => Math.random() - 0.5); }
+
+    function initGame() {
+        shuffledDB = shuffle([...questionsDB]);
+        renderLevel();
+    }
+
+    function renderLevel() {
+        const area = document.getElementById('game-area');
+        const pool = document.getElementById('answer-pool');
+        area.innerHTML = '';
+        pool.innerHTML = '';
+        document.getElementById('next-btn').disabled = true;
+
+        const levelQuestions = shuffledDB.slice(currentLvl * 5, (currentLvl * 5) + 5);
+        const levelAnswers = shuffle(levelQuestions.map(q => q.a));
+
+        levelQuestions.forEach((q, i) => {
+            const row = document.createElement('div');
+            row.className = 'match-row';
+            row.innerHTML = `
+                <div class="question-text">${i+1}. ${q.s.replace('_____', '<span style="color:var(--accent-color);font-weight:bold;"> [ ? ] </span>')}</div>
+                <div class="drop-zone" id="dz-${i}" data-ans="${q.a}">请拖入答案</div>
+            `;
+            area.appendChild(row);
+        });
+
+        levelAnswers.forEach((ans, i) => {
+            const item = document.createElement('div');
+            item.className = 'item';
+            item.textContent = ans;
+            item.draggable = true;
+            item.id = `ans-${i}`;
+            item.addEventListener('dragstart', (e) => e.dataTransfer.setData('text', e.target.textContent));
+            pool.appendChild(item);
+        });
+
+        document.querySelectorAll('.drop-zone').forEach(zone => {
+            zone.addEventListener('dragover', (e) => e.preventDefault());
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const text = e.dataTransfer.getData('text');
+                zone.textContent = text;
+                zone.classList.add('filled');
+                
+                const allFilled = Array.from(document.querySelectorAll('.drop-zone')).every(z => z.classList.contains('filled'));
+                document.getElementById('next-btn').disabled = !allFilled;
+            });
+        });
+    }
+
+    function processLevel() {
+        const zones = document.querySelectorAll('.drop-zone');
+        let levelCorrect = 0;
+
+        zones.forEach(z => {
+            if (z.textContent === z.dataset.ans) {
+                z.classList.add('correct');
+                levelCorrect++;
+                correctTotal++;
+            } else {
+                z.classList.add('wrong');
+            }
+        });
+
+        score = Math.round((correctTotal / 50) * 100);
+        document.getElementById('correct-count').textContent = correctTotal;
+        document.getElementById('current-score').textContent = score;
+
+        setTimeout(() => {
+            currentLvl++;
+            if (currentLvl < 10) {
+                document.getElementById('current-level').textContent = currentLvl + 1;
+                renderLevel();
+            } else {
+                finishGame();
+            }
+        }, 1800);
+    }
+
+    function finishGame() {
+        document.getElementById('game-container').style.display = 'none';
+        const rs = document.getElementById('result-screen');
+        rs.style.display = 'block';
+        
+        const finalStats = document.getElementById('final-stats');
+        finalStats.innerHTML = `
+            正确总数 (Total Benar): <span style="color:var(--success-color)">${correctTotal}</span> / 50<br>
+            错误总数 (Total Salah): <span style="color:var(--error-color)">${50 - correctTotal}</span><br>
+            最终得分 (Skor Akhir): <strong>${score}%</strong>
+        `;
+
+        if (score >= 85) {
+            document.getElementById('result-title').textContent = "太棒了！(Luar Biasa!)";
+            showReview();
+        } else {
+            document.getElementById('result-title').textContent = "继续努力！(Terus Berusaha!)";
+        }
+    }
+
+    function showReview() {
+        document.getElementById('review-screen').style.display = 'block';
+        const tbody = document.getElementById('review-body');
+        shuffledDB.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.s.replace('_____', '<b style="color:var(--success-color)">' + item.a + '</b>')}</td>
+                <td>${item.a}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    initGame();
+</script>
+</body>
+</html>

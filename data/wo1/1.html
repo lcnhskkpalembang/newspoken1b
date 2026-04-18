@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认识新同学 - 互动游戏</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --success-color: #27ae60;
+            --error-color: #e74c3c;
+            --bg-color: #f4f7f6;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            width: 95%;
+            max-width: 900px;
+            background: white;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        h2 { text-align: center; color: var(--primary-color); margin-bottom: 10px; }
+        p.desc { text-align: center; color: #666; font-size: 0.9em; margin-bottom: 20px; }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-weight: bold;
+            background: #eee;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .match-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #fff;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 10px;
+        }
+
+        .question-box {
+            flex: 2;
+            font-size: 1.05em;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .drop-zone {
+            flex: 1;
+            padding: 15px;
+            background: #ecf0f1;
+            border: 2px dashed #bdc3c7;
+            border-radius: 8px;
+            text-align: center;
+            min-height: 24px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .answer-pool {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .item {
+            padding: 10px 15px;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 5px;
+            cursor: grab;
+            font-size: 1em;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .drop-zone.hover { background: #dce4e6; border-color: var(--accent-color); }
+        .drop-zone.filled { border-style: solid; background: #fff; color: var(--accent-color); border-color: var(--accent-color); }
+        .drop-zone.correct { background: #d4edda !important; border-color: var(--success-color) !important; color: #155724 !important; }
+        .drop-zone.wrong { background: #f8d7da !important; border-color: var(--error-color) !important; color: #721c24 !important; }
+
+        .btn {
+            display: block;
+            width: 200px;
+            margin: 20px auto;
+            padding: 12px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        #result-screen, #review-screen { display: none; width: 95%; max-width: 900px; margin-top: 20px; }
+        .review-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .review-table th, .review-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        .review-table th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body oncontextmenu="return false" oncopy="return false" onpaste="return false">
+
+<div id="game-container">
+    <h2>第1课：认识新同学</h2>
+    <p class="desc">请把正确的词语拖拽到句子中（将 50 个词填入对应情境）</p>
+    
+    <div class="info-bar">
+        <span>进度: <span id="current-level">1</span> / 10</span>
+        <span>得分: <span id="current-score">0</span>%</span>
+    </div>
+
+    <div class="answer-pool" id="answer-pool"></div>
+    
+    <div class="game-area" id="game-area"></div>
+
+    <button class="btn" id="next-btn" onclick="checkLevel()" disabled>提交本页</button>
+</div>
+
+<div id="result-screen">
+    <div id="game-container" style="text-align: center;">
+        <h2>测试完成</h2>
+        <div id="final-stats" style="font-size: 1.3em; margin: 20px 0;"></div>
+        <button class="btn" onclick="location.reload()">重新开始</button>
+    </div>
+</div>
+
+<div id="review-screen">
+    <div id="game-container">
+        <h3 style="color: var(--success-color);">重点词汇复习表</h3>
+        <table class="review-table" id="review-table">
+            <thead>
+                <tr>
+                    <th>完整句子 (情境)</th>
+                    <th>关键词 (正确答案)</th>
+                </tr>
+            </thead>
+            <tbody id="review-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 50 Soal berdasarkan teks (Hanzi saja)
+    const questionsDB = [
+        { s: "人的_____是无穷的。", a: "智慧" }, { s: "我_____韩国，我是韩国人。", a: "来自" },
+        { s: "陈新阳非常喜欢中国_____。", a: "诗歌" }, { s: "冯尚德对中国_____感兴趣。", a: "哲学" },
+        { s: "你想过_____要做什么吗？", a: "将来" }, { s: "每个人都要做学习_____。", a: "计划" },
+        { s: "我希望能_____HSK6级考试。", a: "通过" }, { s: "他的汉语说得很_____。", a: "流利" },
+        { s: "张小薇的每门课成绩都很_____。", a: "优秀" }, { s: "孔子说：“_____尚德”。", a: "君子" },
+        { s: "父母希望我多_____问题。", a: "思考" }, { s: "这件衣服_____很漂亮。", a: "确实" },
+        { s: "我喜欢水果，_____苹果和香蕉。", a: "比如" }, { s: "我学习国际中文_____专业。", a: "教育" },
+        { s: "我喜欢和留学生_____。", a: "打交道" }, { s: "我们要和老师保持_____。", a: "联系" },
+        { s: "两个国家的关系非常_____。", a: "密切" }, { s: "我打算_____毕业以后去留学。", a: "本科" },
+        { s: "你大学_____以后想做什么？", a: "毕业" }, { s: "请你向大家_____一下自己。", a: "介绍" },
+        { s: "爸爸妈妈希望我是一个_____的人。", a: "聪明" }, { s: "你大学学什么_____？", a: "专业" },
+        { s: "你寒假有什么_____？", a: "打算" }, { s: "这次考试你的_____怎么样？", a: "成绩" },
+        { s: "我想多_____中国文化。", a: "了解" }, { s: "中国_____有着悠久的历史。", a: "文化" },
+        { s: "我计划明年去中国_____。", a: "旅行" }, { s: "把中国介绍给_____。", a: "世界" },
+        { s: "_____是中国著名的哲学家。", a: "孔子" }, { s: "冯尚德的名字意思是_____。", a: "尚德" },
+        { s: "我们要_____学习汉语。", a: "努力" }, { s: "写汉字一点儿也不_____。", a: "容易" },
+        { s: "我爸爸在中国开了一家_____。", a: "公司" }, { s: "同学之间应该互相_____。", a: "帮助" },
+        { s: "我每天都在_____口语。", a: "练习" }, { s: "为了通过考试，我得练习_____。", a: "听力" },
+        { s: "我希望以后能看懂中国_____。", a: "电影" }, { s: "班长的_____一定得好。", a: "口语" },
+        { s: "_____你打算去哪里玩？", a: "寒假" }, { s: "我想跟中国人_____儿。", a: "聊天" },
+        { s: "张小薇想当这个班的_____。", a: "班长" }, { s: "同学们都_____小薇当班长。", a: "同意" },
+        { s: "我会思考_____的问题。", a: "各种各样" }, { s: "学校里有很多来自各国的_____。", a: "留学生" },
+        { s: "我的专业是_____。", a: "国际经济" }, { s: "阿罗娜是一种_____的名字。", a: "巧克力" },
+        { s: "下个星期我们有汉语_____。", a: "考试" }, { s: "我来自一个美丽的_____。", a: "国家" },
+        { s: "我_____将来能当老师。", a: "希望" }, { s: "“智慧”是什么_____？", a: "意思" }
+    ];
+
+    let currentLvl = 0;
+    let totalScore = 0;
+    let correctCount = 0;
+    let shuffledDB = [];
+
+    function shuffle(arr) { return arr.sort(() => Math.random() - 0.5); }
+
+    function initGame() {
+        shuffledDB = shuffle([...questionsDB]);
+        loadLevel();
+    }
+
+    function loadLevel() {
+        const area = document.getElementById('game-area');
+        const pool = document.getElementById('answer-pool');
+        const btn = document.getElementById('next-btn');
+        area.innerHTML = '';
+        pool.innerHTML = '';
+        btn.disabled = true;
+
+        const levelQuestions = shuffledDB.slice(currentLvl * 5, (currentLvl * 5) + 5);
+        const levelAnswers = shuffle(levelQuestions.map(q => q.a));
+
+        levelQuestions.forEach((q, i) => {
+            const row = document.createElement('div');
+            row.className = 'match-row';
+            row.innerHTML = `
+                <div class="question-box">${i+1}. ${q.s.replace('_____', '<span style="color:#3498db;font-weight:bold;"> [ ? ] </span>')}</div>
+                <div class="drop-zone" id="dz-${i}" data-correct="${q.a}">拖拽到这里</div>
+            `;
+            area.appendChild(row);
+        });
+
+        levelAnswers.forEach((ans, i) => {
+            const item = document.createElement('div');
+            item.className = 'item';
+            item.textContent = ans;
+            item.draggable = true;
+            item.id = `ans-${i}`;
+            item.addEventListener('dragstart', (e) => e.dataTransfer.setData('text', e.target.textContent));
+            pool.appendChild(item);
+        });
+
+        document.querySelectorAll('.drop-zone').forEach(zone => {
+            zone.addEventListener('dragover', (e) => e.preventDefault());
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const data = e.dataTransfer.getData('text');
+                zone.textContent = data;
+                zone.classList.add('filled');
+                checkCompletion();
+            });
+        });
+    }
+
+    function checkCompletion() {
+        const filled = Array.from(document.querySelectorAll('.drop-zone')).every(z => z.classList.contains('filled'));
+        document.getElementById('next-btn').disabled = !filled;
+    }
+
+    function checkLevel() {
+        const zones = document.querySelectorAll('.drop-zone');
+        let lvlCorrect = 0;
+
+        zones.forEach(z => {
+            if (z.textContent === z.dataset.correct) {
+                z.classList.add('correct');
+                lvlCorrect++;
+                correctCount++;
+            } else {
+                z.classList.add('wrong');
+            }
+        });
+
+        totalScore = Math.round((correctCount / 50) * 100);
+        document.getElementById('current-score').textContent = totalScore;
+
+        setTimeout(() => {
+            currentLvl++;
+            if (currentLvl < 10) {
+                document.getElementById('current-level').textContent = currentLvl + 1;
+                loadLevel();
+            } else {
+                showResults();
+            }
+        }, 1500);
+    }
+
+    function showResults() {
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'block';
+        document.getElementById('final-stats').innerHTML = `
+            正确数 (Benar): ${correctCount} / 50 <br>
+            最终得分 (Skor): ${totalScore}%
+        `;
+
+        if (totalScore >= 85) {
+            const review = document.getElementById('review-screen');
+            const tbody = document.getElementById('review-body');
+            review.style.display = 'block';
+            shuffledDB.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${item.s.replace('_____', '<strong>' + item.a + '</strong>')}</td><td>${item.a}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+    }
+
+    initGame();
+</script>
+</body>
+</html>
